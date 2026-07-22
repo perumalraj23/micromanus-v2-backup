@@ -4,9 +4,88 @@ A miniature Manus + Perplexity: a deep-research AI agent with live web search, a
 Think → Tool Call → Observe reasoning loop, PDF report generation, Stripe-sandbox
 credit billing, and a usage/cost analytics dashboard.
 
-Built with Next.js 16 (App Router), Supabase (auth + Postgres), Stripe (sandbox payments),
-Brave Search, and the OpenAI SDK (works with any OpenAI-compatible endpoint — OpenAI,
-Anthropic/Claude, Moonshot's Kimi, OpenRouter, etc.).
+Built with Next.js 16 (App Router), Supabase (auth + Postgres + RLS), Stripe (sandbox
+payments), Brave Search, and the OpenAI SDK (works with any OpenAI-compatible endpoint —
+OpenAI, Anthropic/Claude, Moonshot's Kimi, Google, xAI, OpenRouter, Groq, or a fully custom
+endpoint).
+
+> **New engineer?** Read this file, then [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+> [docs/SETUP.md](docs/SETUP.md) — you should be running the app locally in under 10 minutes.
+
+## What is MicroManus
+
+MicroManus is a SaaS research assistant. A signed-in, paid user types a research question;
+the agent thinks, calls a `web_search` tool (Brave Search) as many times as it needs, then
+calls a `generate_report` tool to produce a structured executive summary (TL;DR, key
+findings, recommendations, sources). Every step streams live to the browser over
+Server-Sent Events (SSE) as "Agent Thoughts" and a "Research Timeline". Reports can be
+exported as PDF or shared via an unguessable public link. Usage is tracked per request
+(tokens, cost, cache savings) and surfaced on an Analytics dashboard.
+
+## Features
+
+- Google & GitHub OAuth (via Supabase Auth)
+- Coupon or Stripe-sandbox paywall (credits-based access)
+- Bring-your-own model API key, encrypted at rest (AES-256-GCM), across 8 provider presets
+  or a fully custom OpenAI-compatible endpoint
+- Live agent loop: Think → Tool Call (`web_search` / `generate_report`) → Observe, streamed
+  over SSE with a visible research timeline and "agent thoughts" panel
+- PDF report export and public report sharing (via an unguessable `share_token`, not RLS)
+- Usage/cost analytics: tokens, cost estimate, cache savings, streaks, founder insights
+- Command palette (`Cmd/Ctrl+K`), onboarding checklist, product tour, founder mode
+- Structured logging, in-process metrics, `/api/health` and `/status` deployment checks
+- Automated test suite (Vitest) covering credit math, encryption, Stripe packs, health
+  checks, and the search tool's retry/failure handling
+
+## Architecture (at a glance)
+
+```mermaid
+flowchart LR
+    Browser -->|OAuth / SSE / REST| NextApp["Next.js App Router\n(src/app)"]
+    NextApp --> Supabase[("Supabase\nPostgres + Auth + RLS")]
+    NextApp --> Stripe[("Stripe\nsandbox payments")]
+    NextApp --> Brave[("Brave Search API")]
+    NextApp --> LLM[("Any OpenAI-compatible\nmodel provider")]
+```
+
+Full breakdown, including diagrams for auth, the agent loop, credits, Stripe, report
+generation, and SSE streaming: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Screenshots
+
+No screenshots are committed to this repository. The app requires live Supabase/Stripe/
+Brave/LLM credentials to render meaningful UI state (auth, paywall, live research), which
+aren't available in this development environment — rather than ship fabricated or
+placeholder images, this README instead documents each screen in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#screens) with the exact component files that
+render it, so a new engineer can run the app locally and see the real UI in under 10 minutes.
+
+## API Reference
+
+Every route under `src/app/api/**`, its method, auth requirements, and request/response
+shape: [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
+
+## Testing
+
+```bash
+npm run test    # vitest run — unit tests for credit math, encryption, Stripe, health checks,
+                 # search-tool retry/failure handling, and the coupon redemption route
+npm run lint
+npm run build
+```
+
+See [docs/reports/11_REPORT.md](docs/reports/11_REPORT.md) for full test coverage details
+and known gaps.
+
+## Project status
+
+This codebase was built by working sequentially through `docs/prompts/01_AGENT_LOOP.md`
+through `14_V2_BACKLOG.md`. Each prompt's report/log lives in `docs/reports/` and
+`docs/logs/`; the final ship/no-ship audit is
+[docs/reports/10_REPORT.md](docs/reports/10_REPORT.md). The single most important
+outstanding item before a production launch is applying the three pending Supabase
+migrations (`0002`, `0003`, `0004`) to the live database — see
+[docs/DEPLOY_CHECKLIST.md](docs/DEPLOY_CHECKLIST.md).
 
 ## 1. Prerequisites
 
@@ -18,116 +97,36 @@ Anthropic/Claude, Moonshot's Kimi, OpenRouter, etc.).
   [Anthropic](https://console.anthropic.com/settings/keys), or [Moonshot/Kimi](https://platform.moonshot.ai/)
 - A [Vercel](https://vercel.com) account for deployment
 
-## 2. Supabase setup
+## 2. Setup
 
-1. Create a new Supabase project.
-2. Open the **SQL Editor** and run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
-   This creates all tables, the `handle_new_user` trigger (auto-creates a `profiles` row on
-   signup), and Row Level Security policies.
-3. Go to **Authentication → Providers** and enable:
-   - **Google** — create OAuth credentials in the
-     [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with redirect
-     URI `https://<your-project-ref>.supabase.co/auth/v1/callback`.
-   - **GitHub** — create an OAuth App at
-     [github.com/settings/developers](https://github.com/settings/developers) with the same
-     callback URL.
-4. Under **Authentication → URL Configuration**, add your deployed URL (and
-   `http://localhost:3000` for local dev) to the Redirect URLs allow-list.
-5. Copy your **Project URL**, **anon public key**, and **service_role key** from
-   **Project Settings → API** into your environment variables (see step 5).
-
-## 3. Stripe setup (sandbox)
-
-1. In the Stripe Dashboard, switch to **Test mode**.
-2. Copy your test **Secret key** into `STRIPE_SECRET_KEY`.
-3. Add a webhook endpoint pointing at `https://<your-domain>/api/billing/webhook`, listening
-   for `checkout.session.completed`, and copy its **Signing secret** into
-   `STRIPE_WEBHOOK_SECRET`.
-   - Note: the app also verifies payment directly with Stripe when the user is redirected
-     back from Checkout, so credits are still granted correctly even before a webhook is
-     configured — the webhook is the durable, production-grade path.
-4. Test card: `4242 4242 4242 4242`, any future expiry, any CVC.
-
-## 4. Brave Search
-
-Grab an API key from the [Brave Search API dashboard](https://api.search.brave.com/app/keys)
-and set `BRAVE_SEARCH_API_KEY`. This powers the agent's `web_search` tool.
-
-## 5. Environment variables
-
-Copy `.env.example` to `.env.local` and fill in every value:
+Full step-by-step Supabase, OAuth, Stripe, and Brave Search setup lives in
+[docs/SETUP.md](docs/SETUP.md). Quick version once `.env.local` is filled in from
+`.env.example` (see [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) for what
+every variable is and where to get it):
 
 ```bash
-cp .env.example .env.local
-```
-
-| Variable | Description |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only, bypasses RLS) |
-| `ENCRYPTION_KEY` | Any long random string — encrypts user model API keys at rest |
-| `STRIPE_SECRET_KEY` | Stripe test secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `BRAVE_SEARCH_API_KEY` | Brave Search API key |
-| `NEXT_PUBLIC_SITE_URL` | Public site URL (used for Stripe redirect URLs) |
-
-## 6. Run locally
-
-```bash
+cp .env.example .env.local   # then fill in every value
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## 7. Deploy to Vercel
+## 3. First-run product tour
 
-1. Push this repo to GitHub.
-2. In Vercel, **Add New → Project**, import the repo.
-3. Add all the environment variables from step 5 (use your production Supabase/Stripe values).
-4. Set `NEXT_PUBLIC_SITE_URL` to your Vercel URL, and add that same URL to Supabase's
-   Redirect URLs allow-list and to your Google/GitHub OAuth app's callback settings.
-5. Deploy. Then add the Stripe webhook endpoint pointing at
-   `https://<your-vercel-domain>/api/billing/webhook`.
-
-The chat API route (`/api/chat`) streams responses and can run for up to two minutes
-(`maxDuration = 120`) for long research sessions — this requires a Vercel plan whose
-function duration limit supports it (Pro or Fluid Compute); on Hobby, lower `maxDuration`
-in [`src/app/api/chat/route.ts`](src/app/api/chat/route.ts) if you hit timeouts.
-
-## 8. First-run product tour
-
-1. Open the deployed URL → **Sign In** with Google or GitHub.
-2. You'll land on the **paywall**. Either:
-   - Enter coupon `SID_DRDROID`, or
-   - Pay $5 via Stripe sandbox Checkout (test card above).
-   Both grant **5 credits**.
-3. In **Settings**, add a model API key (pick a preset: GPT-4o mini, Claude 3.5 Sonnet, or
-   Kimi K2 — or enter a fully custom OpenAI-compatible endpoint).
+1. Sign in with Google or GitHub.
+2. You'll land on the **paywall**. Either enter coupon `SID_DRDROID`, or pay $5 via Stripe
+   sandbox Checkout (test card `4242 4242 4242 4242`, any future expiry/CVC). Both grant
+   **5 credits**.
+3. In **Settings**, add a model API key (pick a preset — GPT-4o mini, Claude 3.5 Sonnet, Kimi
+   K2, etc. — or enter a fully custom OpenAI-compatible endpoint).
 4. Start a new chat and ask: *"Analyze recent California wildfires and generate a report."*
 5. Watch the **Research Timeline** and **Agent Thoughts** update live as it searches the web,
    then review the **Executive Summary** and export it as a **PDF**.
 6. Open **Analytics** to see total chats, token usage, cost per model/chat, and cache savings.
 
-## Architecture notes
+## 4. Deployment
 
-- **Agent loop** (`src/lib/agent/loop.ts`): a Think → Tool Call → Observe loop against any
-  OpenAI-compatible `chat.completions` endpoint, with `web_search` (Brave Search) and
-  `generate_report` tools. Streams thoughts, timeline events, and the final answer over
-  Server-Sent Events.
-- **Credits**: 1 credit is consumed per research query; refunded automatically if the agent
-  loop errors before producing output.
-- **Security**: model API keys are encrypted at rest (AES-256-GCM) and never returned to the
-  client in full; Stripe webhook signatures are verified; all API routes validate input with
-  Zod and enforce per-user rate limiting; RLS scopes every table to its owner.
-- **Cost & cache accounting**: token usage is read from each provider's response and priced
-  against a best-effort public pricing table (`src/lib/pricing.ts`) for estimated cost and
-  cache savings — actual billing always happens with your own model provider account.
-
-## Deploy on Vercel
-
-The easiest way to deploy this Next.js app is the [Vercel Platform](https://vercel.com/new).
-See the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying)
-for more details.
+Full Vercel + Supabase + Stripe + OAuth production checklist:
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/DEPLOY_CHECKLIST.md](docs/DEPLOY_CHECKLIST.md).
 
