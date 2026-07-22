@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { AGENT_SYSTEM_PROMPT, TOOL_DEFINITIONS } from "@/lib/agent/prompt";
 import { braveSearch } from "@/lib/agent/brave-search";
+import { logger } from "@/lib/logger";
 import type { AgentThought, AgentTimelineEvent, ReportSummary } from "@/lib/types/app";
 
 export type AgentEvent =
@@ -12,7 +13,11 @@ export type AgentEvent =
   | {
       type: "done";
       usage: { input_tokens: number; output_tokens: number; cached_tokens: number };
+      /** True when the loop hit the reasoning step limit without a normal final answer. */
+      incomplete?: boolean;
     }
+  /** The model returned an empty final answer with no tool calls and no report. */
+  | { type: "empty" }
   | { type: "error"; message: string };
 
 export type AgentLoopInput = {
@@ -41,6 +46,9 @@ export async function* runAgentLoop(input: AgentLoopInput): AsyncGenerator<Agent
   let totalInput = 0;
   let totalOutput = 0;
   let totalCached = 0;
+  // Some OpenAI-compatible providers reject the `tools`/`tool_choice` params outright.
+  // Once that happens we stop sending them for the rest of this run instead of failing.
+  let toolsSupported = true;
 
   yield { type: "timeline", event: { time: now(), label: "Research started" } };
 
@@ -50,27 +58,44 @@ export async function* runAgentLoop(input: AgentLoopInput): AsyncGenerator<Agent
       thought: { time: now(), type: "thinking", text: "Thinking about the best next step…" },
     };
 
-    let completion: OpenAI.Chat.Completions.ChatCompletion;
-    try {
-completion = await client.chat.completions.create({
-    model: input.model,
-    messages,
-    temperature: 0.3,
-});
-   } catch (err) {
-  console.log("====================================");
-  console.log("RAW ERROR:");
-  console.dir(err, { depth: null });
-  console.log("MODEL:", input.model);
-  console.log("BASE URL:", input.baseUrl);
-  console.log("====================================");
+    let completion: OpenAI.Chat.Completions.ChatCompletion | undefined;
+    let retryAttempt = 0;
 
-  yield {
-    type: "error",
-    message: err instanceof Error ? err.message : String(err),
-  };
-  return;
-}
+    while (!completion) {
+      try {
+        completion = await client.chat.completions.create({
+          model: input.model,
+          messages,
+          temperature: 0.3,
+          ...(toolsSupported ? { tools: TOOL_DEFINITIONS, tool_choice: "auto" as const } : {}),
+        });
+      } catch (err) {
+        const status = (err as { status?: number } | undefined)?.status;
+        const message = err instanceof Error ? err.message : String(err);
+        const lower = message.toLowerCase();
+        const mentionsTools = lower.includes("tool") || lower.includes("function");
+
+        // Provider doesn't support tool calling at all — degrade gracefully and retry once.
+        if (toolsSupported && mentionsTools && (status === 400 || status === 404)) {
+          toolsSupported = false;
+          logger.warn("agent.tools_unsupported", { model: input.model, status: status ?? null });
+          continue;
+        }
+
+        // Transient errors (rate limit / server error) — retry a couple of times with backoff.
+        const retriable = status === 429 || (typeof status === "number" && status >= 500);
+        if (retriable && retryAttempt < 2) {
+          retryAttempt += 1;
+          logger.warn("agent.completion_retry", { model: input.model, status: status ?? null, attempt: retryAttempt });
+          await sleep(300 * retryAttempt);
+          continue;
+        }
+
+        logger.error("agent.completion_failed", { model: input.model, status: status ?? null });
+        yield { type: "error", message };
+        return;
+      }
+    }
 
     const usage = completion.usage;
     if (usage) {
@@ -89,7 +114,12 @@ completion = await client.chat.completions.create({
     const toolCalls = message.tool_calls ?? [];
 
     if (toolCalls.length === 0) {
-      const content = message.content ?? "";
+      const content = (message.content ?? "").trim();
+      if (!content) {
+        // Empty final answer with no tool calls and no report — nothing useful was produced.
+        yield { type: "empty" };
+        return;
+      }
       yield {
         type: "thought",
         thought: { time: now(), type: "final", text: "Composing final answer…" },
@@ -193,7 +223,15 @@ completion = await client.chat.completions.create({
     type: "thought",
     thought: { time: now(), type: "final", text: "Reached the reasoning step limit; summarizing what I have." },
   };
-  yield { type: "done", usage: { input_tokens: totalInput, output_tokens: totalOutput, cached_tokens: totalCached } };
+  yield {
+    type: "done",
+    usage: { input_tokens: totalInput, output_tokens: totalOutput, cached_tokens: totalCached },
+    incomplete: true,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function chunkText(text: string, size = 6): string[] {
