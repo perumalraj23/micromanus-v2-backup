@@ -8,6 +8,7 @@ import { runAgentLoop, type AgentEvent } from "@/lib/agent/loop";
 import { estimateCost } from "@/lib/pricing";
 import { humanizeError, truncate } from "@/lib/utils";
 import { logger, newRequestId } from "@/lib/logger";
+import { recordRequest, recordFailure } from "@/lib/metrics";
 import type { AgentThought, AgentTimelineEvent, ReportSummary } from "@/lib/types/app";
 
 export const runtime = "nodejs";
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const startedAt = Date.now();
       const encoder = new TextEncoder();
       const send = (event: string, data: unknown) => {
         try {
@@ -206,6 +208,8 @@ export async function POST(req: NextRequest) {
       // truly nothing to show the user.
       const producedValue = Boolean(report) || (fullText.trim().length > 0 && !empty);
 
+      if (incomplete && !producedValue) recordFailure("timeout");
+
       if (errored || empty || (incomplete && !producedValue)) {
         await refundOnce(errored ? "agent_error" : empty ? "empty_response" : "max_iterations");
         if (empty && !errored) {
@@ -271,6 +275,8 @@ export async function POST(req: NextRequest) {
 
         send("complete", { messageId: assistantMessage?.id, reportId: reportRow?.id ?? null, usage, cost_usd });
       }
+
+      recordRequest(Date.now() - startedAt, errored || empty || (incomplete && !producedValue));
 
       try {
         controller.close();

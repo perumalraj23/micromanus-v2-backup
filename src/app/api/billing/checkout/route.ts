@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, getPaymentPack } from "@/lib/stripe";
 import { logger, newRequestId } from "@/lib/logger";
+import { recordFailure } from "@/lib/metrics";
 
 export async function POST(req: Request) {
   const traceId = newRequestId();
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
         attempt,
         status: statusCode,
       });
+      recordFailure("stripe");
       if (transient && attempt < maxAttempts) continue;
       return Response.json(
         { error: "We couldn't start the checkout. Please try again in a moment.", traceId },

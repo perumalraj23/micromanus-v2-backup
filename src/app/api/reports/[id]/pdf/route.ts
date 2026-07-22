@@ -1,6 +1,8 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { ResearchReportDocument } from "@/lib/pdf/report";
+import { logger } from "@/lib/logger";
+import { recordFailure } from "@/lib/metrics";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,7 +35,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         "Content-Disposition": `attachment; filename="${slugify(report.title)}.pdf"`,
       },
     });
-  } catch {
+  } catch (err) {
+    logger.error("pdf.render_failed", { route: "/api/reports/[id]/pdf", reportId: id, message: (err as Error).message });
+    recordFailure("pdf");
     return Response.json({ error: "Could not generate the PDF right now. Please try again." }, { status: 500 });
   }
 }

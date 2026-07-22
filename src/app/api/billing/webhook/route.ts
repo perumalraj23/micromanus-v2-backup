@@ -1,10 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
+import { logger } from "@/lib/logger";
+import { recordFailure } from "@/lib/metrics";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
 
-/** Stripe webhook: on successful checkout, credit the user's account. Verifies the signature. */
+/**
+ * Stripe webhook: on successful checkout, credit the user's account exactly once.
+ * Verifies the signature and delegates crediting to the `grant_payment_credits` SQL function,
+ * which is idempotent (guarded by a unique constraint on `payments.stripe_session_id`) so
+ * Stripe's automatic retries/replays can never double-credit an account.
+ */
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -28,32 +35,15 @@ export async function POST(req: Request) {
 
     if (userId) {
       const admin = createAdminClient();
-
-      const { data: existing } = await admin
-        .from("payments")
-        .select("id")
-        .eq("stripe_session_id", session.id)
-        .maybeSingle();
-
-      if (!existing) {
-        const { data: profile } = await admin
-          .from("profiles")
-          .select("credits")
-          .eq("id", userId)
-          .maybeSingle();
-
-        await admin
-          .from("profiles")
-          .update({ credits: (profile?.credits ?? 0) + credits, has_paid: true })
-          .eq("id", userId);
-
-        await admin.from("payments").insert({
-          user_id: userId,
-          stripe_session_id: session.id,
-          amount_usd: (session.amount_total ?? 0) / 100,
-          credits_added: credits,
-          status: "completed",
-        });
+      const { error } = await admin.rpc("grant_payment_credits", {
+        p_user_id: userId,
+        p_session_id: session.id,
+        p_credits: credits,
+        p_amount_usd: (session.amount_total ?? 0) / 100,
+      });
+      if (error) {
+        logger.error("billing.webhook_grant_failed", { route: "/api/billing/webhook", eventType: event.type });
+        recordFailure("stripe");
       }
     }
   }

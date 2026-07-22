@@ -1,11 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
+import { logger } from "@/lib/logger";
+import { recordFailure } from "@/lib/metrics";
 
 /**
  * Fallback confirmation path for Stripe Checkout in sandbox environments where a webhook
  * listener may not be configured. Verifies the session directly with Stripe (source of truth)
- * before crediting the account, and is idempotent against the `payments` table.
+ * before crediting the account. Crediting itself goes through the same idempotent
+ * `grant_payment_credits` SQL function the webhook uses, so a race between this route and a
+ * webhook delivery for the same session can never double-credit the account.
  */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -30,31 +34,25 @@ export async function GET(req: Request) {
     }
 
     const admin = createAdminClient();
-    const { data: existing } = await admin
-      .from("payments")
-      .select("id")
-      .eq("stripe_session_id", session.id)
-      .maybeSingle();
+    const credits = Number(session.metadata?.credits ?? 5);
 
-    if (existing) {
-      const { data: profile } = await admin.from("profiles").select("credits").eq("id", user.id).maybeSingle();
-      return Response.json({ credits: profile?.credits ?? 0, already_processed: true });
+    const { data, error } = await admin
+      .rpc("grant_payment_credits", {
+        p_user_id: user.id,
+        p_session_id: session.id,
+        p_credits: credits,
+        p_amount_usd: (session.amount_total ?? 0) / 100,
+      })
+      .single();
+
+    if (error || !data) {
+      logger.error("billing.confirm_grant_failed", { route: "/api/billing/confirm" });
+      recordFailure("stripe");
+      return Response.json({ error: "Could not confirm your payment. Please contact support." }, { status: 500 });
     }
 
-    const credits = Number(session.metadata?.credits ?? 5);
-    const { data: profile } = await admin.from("profiles").select("credits").eq("id", user.id).maybeSingle();
-    const newCredits = (profile?.credits ?? 0) + credits;
-
-    await admin.from("profiles").update({ credits: newCredits, has_paid: true }).eq("id", user.id);
-    await admin.from("payments").insert({
-      user_id: user.id,
-      stripe_session_id: session.id,
-      amount_usd: (session.amount_total ?? 0) / 100,
-      credits_added: credits,
-      status: "completed",
-    });
-
-    return Response.json({ credits: newCredits });
+    const result = data as { credits: number; already_processed: boolean };
+    return Response.json({ credits: result.credits, already_processed: result.already_processed });
   } catch {
     return Response.json({ error: "Could not confirm your payment. Please contact support." }, { status: 500 });
   }
