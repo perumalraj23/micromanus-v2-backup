@@ -16,13 +16,18 @@ export async function GET() {
   const overallHealthy = database.status === "healthy";
   const metrics = metricsSnapshot();
 
-  return Response.json({
-    status: overallHealthy ? "healthy" : "degraded",
-    version: getVersion(),
-    database: database.status,
-    stripe: stripe.status,
-    brave: brave.status,
-    // Instance-local uptime only (resets on cold start) — see src/lib/metrics.ts caveat.
-    uptimeSeconds: metrics.instanceUptimeSeconds,
-  });
+  return Response.json(
+    {
+      status: overallHealthy ? "healthy" : "degraded",
+      version: getVersion(),
+      database: database.status,
+      stripe: stripe.status,
+      brave: brave.status,
+      // Instance-local uptime only (resets on cold start) — see src/lib/metrics.ts caveat.
+      uptimeSeconds: metrics.instanceUptimeSeconds,
+    },
+    // Uptime monitors/load balancers often poll this every few seconds; a short public cache
+    // avoids hitting the database on every single poll while staying fresh enough to be useful.
+    { headers: { "Cache-Control": "public, max-age=5, stale-while-revalidate=10" } }
+  );
 }

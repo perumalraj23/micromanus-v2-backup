@@ -33,6 +33,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${slugify(report.title)}.pdf"`,
+        // Reports have no edit endpoint — once created, a given report id's PDF is
+        // deterministic. `private` (not `public`) since this is per-user authenticated content
+        // and must not be cached by shared proxies/CDNs, only the requesting browser.
+        "Cache-Control": "private, max-age=3600, immutable",
       },
     });
   } catch (err) {

@@ -45,29 +45,27 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
-  const { data: chat } = await admin
-    .from("chats")
-    .select("id, user_id, title")
-    .eq("id", chatId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Chat ownership, rate limit, and profile/credits are three independent reads (all keyed off
+  // user.id / chatId, none depends on another's result) — running them in parallel instead of
+  // sequentially cuts this route's pre-agent-loop latency from ~3 round trips to ~1. Error
+  // precedence below is unchanged: chat-not-found still wins over rate-limit still wins over
+  // no-credits, exactly as it did when these were awaited one at a time.
+  const [{ data: chat }, rateLimit, { data: profile }] = await Promise.all([
+    admin.from("chats").select("id, user_id, title").eq("id", chatId).eq("user_id", user.id).maybeSingle(),
+    checkRateLimit(user.id),
+    admin.from("profiles").select("credits, has_paid").eq("id", user.id).maybeSingle(),
+  ]);
+
   if (!chat) {
     return Response.json({ error: "Chat not found." }, { status: 404 });
   }
 
-  const rateLimit = await checkRateLimit(user.id);
   if (!rateLimit.allowed) {
     return Response.json(
       { error: "You're sending messages too quickly. Please wait a few seconds and try again." },
       { status: 429 }
     );
   }
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("credits, has_paid")
-    .eq("id", user.id)
-    .maybeSingle();
 
   if (!profile || !profile.has_paid || profile.credits <= 0) {
     return Response.json(
@@ -79,7 +77,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const active = await getActiveModelConfig(user.id);
+  // getActiveModelConfig and the conversation history read don't depend on each other — run
+  // them in parallel. If the model-config check below fails, the history result is simply
+  // discarded (one extra query on that error path), but the common success path saves a
+  // round trip.
+  const [active, { data: history }] = await Promise.all([
+    getActiveModelConfig(user.id),
+    admin
+      .from("messages")
+      .select("role, content")
+      .eq("chat_id", chatId)
+      .order("created_at", { ascending: true })
+      .limit(40),
+  ]);
   if (!active) {
     return Response.json(
       {
@@ -89,13 +99,6 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-
-  const { data: history } = await admin
-    .from("messages")
-    .select("role, content")
-    .eq("chat_id", chatId)
-    .order("created_at", { ascending: true })
-    .limit(40);
 
   const { data: userMessage, error: insertUserErr } = await admin
     .from("messages")
