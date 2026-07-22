@@ -61,4 +61,22 @@ export type UsageTotals = {
   cache_savings_usd: number;
   by_model: { model: string; cost_usd: number; input_tokens: number; output_tokens: number }[];
   by_chat: { chat_id: string; title: string; cost_usd: number }[];
+  /** Range applied to the time-scoped fields below (`daily`, `range_*`). Lifetime fields
+   * above (credits_remaining, cache_savings_usd, etc.) are always all-time. */
+  range: "today" | "7d" | "30d" | "90d" | "lifetime";
+  daily: { date: string; chats: number; reports: number; cost_usd: number }[];
+  model_insights: { model: string; requests: number; avg_cost_usd: number; total_cost_usd: number }[];
+  credits_purchased: number;
+  credits_consumed: number;
+  founder_insights: {
+    most_active_day: string | null;
+    most_expensive_model: string | null;
+    cheapest_model: string | null;
+    average_report_words: number | null;
+  };
+  weekly: { chats: number; reports: number; cost_usd: number };
+  streak_days: number;
+  badges: { id: string; label: string; earned: boolean }[];
+  cost_tip: string | null;
 };
+
