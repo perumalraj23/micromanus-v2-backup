@@ -1,7 +1,9 @@
+import type { ModelProvider } from "@/lib/types/app";
+
 export type ModelPreset = {
   id: string;
   label: string;
-  provider: "openai" | "anthropic" | "kimi" | "custom";
+  provider: ModelProvider;
   base_url: string;
   model: string;
   /** USD per 1M tokens. Best-effort public pricing for cost estimation only. */
@@ -41,6 +43,62 @@ export const MODEL_PRESETS: ModelPreset[] = [
     base_url: "https://api.moonshot.ai/v1",
     model: "kimi-k2-0711-preview",
     pricing: { input: 0.6, output: 2.5, cached_input: 0.15 },
+  },
+  {
+    id: "gemini-1.5-flash",
+    label: "Gemini 1.5 Flash (Google, OpenAI-compatible)",
+    provider: "google",
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-1.5-flash",
+    pricing: { input: 0.075, output: 0.3, cached_input: 0.0375 },
+  },
+  {
+    id: "gemini-1.5-pro",
+    label: "Gemini 1.5 Pro (Google, OpenAI-compatible)",
+    provider: "google",
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-1.5-pro",
+    pricing: { input: 1.25, output: 5, cached_input: 0.625 },
+  },
+  {
+    id: "grok-4",
+    label: "Grok-4 (xAI)",
+    provider: "xai",
+    base_url: "https://api.x.ai/v1",
+    model: "grok-4",
+    pricing: { input: 3, output: 15, cached_input: 0.75 },
+  },
+  {
+    id: "grok-4-fast",
+    label: "Grok-4 Fast (xAI)",
+    provider: "xai",
+    base_url: "https://api.x.ai/v1",
+    model: "grok-4-fast",
+    pricing: { input: 0.2, output: 0.5, cached_input: 0.05 },
+  },
+  {
+    id: "openrouter-deepseek",
+    label: "DeepSeek (via OpenRouter)",
+    provider: "openrouter",
+    base_url: "https://openrouter.ai/api/v1",
+    model: "deepseek/deepseek-chat",
+    pricing: { input: 0.27, output: 1.1, cached_input: 0.07 },
+  },
+  {
+    id: "openrouter-llama",
+    label: "Llama 3.3 70B (via OpenRouter)",
+    provider: "openrouter",
+    base_url: "https://openrouter.ai/api/v1",
+    model: "meta-llama/llama-3.3-70b-instruct",
+    pricing: { input: 0.12, output: 0.3, cached_input: 0.03 },
+  },
+  {
+    id: "groq-llama-3.3",
+    label: "Llama 3.3 70B (Groq)",
+    provider: "groq",
+    base_url: "https://api.groq.com/openai/v1",
+    model: "llama-3.3-70b-versatile",
+    pricing: { input: 0.05, output: 0.08, cached_input: 0.025 },
   },
   {
     id: "custom",

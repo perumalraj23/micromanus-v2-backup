@@ -38,7 +38,7 @@ export type ChatSummary = {
   updated_at: string;
 };
 
-export type ModelProvider = "openai" | "anthropic" | "kimi" | "custom";
+export type ModelProvider = "openai" | "anthropic" | "kimi" | "google" | "xai" | "openrouter" | "groq" | "custom";
 
 export type ModelConfig = {
   id: string;
@@ -48,6 +48,8 @@ export type ModelConfig = {
   model: string;
   is_default: boolean;
   masked_key: string;
+  requests?: number;
+  cost_usd?: number;
 };
 
 export type UsageTotals = {

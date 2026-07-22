@@ -19,7 +19,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
 const updateSchema = z.object({
   set_default: z.boolean().optional(),
-  provider: z.enum(["openai", "anthropic", "kimi", "custom"]).optional(),
+  provider: z.enum(["openai", "anthropic", "kimi", "google", "xai", "openrouter", "groq", "custom"]).optional(),
   label: z.string().trim().min(1).max(60).optional(),
   base_url: z.string().trim().url("Please enter a valid endpoint URL.").optional(),
   model: z.string().trim().min(1).max(120).optional(),

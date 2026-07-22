@@ -14,13 +14,28 @@ export async function GET() {
   // Encrypted API keys are never selectable by the client role (enforced at the DB level),
   // so this read goes through the service-role admin client, explicitly scoped to this user.
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("model_configs")
-    .select("id, provider, label, base_url, model, is_default, api_key_encrypted, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
+  const [{ data, error }, { data: usageRows }] = await Promise.all([
+    admin
+      .from("model_configs")
+      .select("id, provider, label, base_url, model, is_default, api_key_encrypted, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true }),
+    admin.from("usage_events").select("model, cost_usd").eq("user_id", user.id),
+  ]);
 
   if (error) return Response.json({ error: "Could not load model configs." }, { status: 500 });
+
+  // Per-model usage stats, aggregated by matching usage_events.model against each config's
+  // model name — usage_events doesn't store a model_config_id, so this is a best-effort match
+  // by model name (accurate as long as a user doesn't reuse the same model name across two
+  // different configs with different endpoints/keys).
+  const statsByModel = new Map<string, { requests: number; cost_usd: number }>();
+  for (const row of usageRows ?? []) {
+    const existing = statsByModel.get(row.model) ?? { requests: 0, cost_usd: 0 };
+    existing.requests += 1;
+    existing.cost_usd += Number(row.cost_usd ?? 0);
+    statsByModel.set(row.model, existing);
+  }
 
   const configs = (data ?? []).map((c) => ({
     id: c.id,
@@ -30,6 +45,8 @@ export async function GET() {
     model: c.model,
     is_default: c.is_default,
     masked_key: safeDecryptPreview(c.api_key_encrypted),
+    requests: statsByModel.get(c.model)?.requests ?? 0,
+    cost_usd: statsByModel.get(c.model)?.cost_usd ?? 0,
   }));
 
   return Response.json({ configs });
@@ -41,7 +58,7 @@ function safeDecryptPreview(encrypted: string): string {
 }
 
 const createSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "kimi", "custom"]),
+  provider: z.enum(["openai", "anthropic", "kimi", "google", "xai", "openrouter", "groq", "custom"]),
   label: z.string().trim().min(1).max(60),
   base_url: z.string().trim().url("Please enter a valid endpoint URL."),
   model: z.string().trim().min(1).max(120),
