@@ -9,11 +9,13 @@ import {
   MessageSquare,
   BarChart3,
   Settings,
+  FileText,
   MoreHorizontal,
   Pencil,
   Trash2,
   LogOut,
   Coins,
+  HelpCircle,
 } from "lucide-react";
 import { useChats } from "@/components/chat/chats-provider";
 import { Button } from "@/components/ui/button";
@@ -55,17 +57,6 @@ export function Sidebar({
     if (renamingId) inputRef.current?.focus();
   }, [renamingId]);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        createChat();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [createChat]);
-
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -97,7 +88,9 @@ export function Sidebar({
       <nav className="mt-4 flex flex-col gap-0.5 px-3">
         {[
           { href: "/analytics", label: "Analytics", icon: BarChart3 },
+          { href: "/reports", label: "Reports", icon: FileText },
           { href: "/settings", label: "Settings", icon: Settings },
+          { href: "/help", label: "Help", icon: HelpCircle },
         ].map((item) => (
           <Link
             key={item.href}

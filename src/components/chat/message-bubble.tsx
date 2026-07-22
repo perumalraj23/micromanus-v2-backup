@@ -3,7 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
-import { Copy, Check, Sparkles, User } from "lucide-react";
+import { Copy, Check, Sparkles, User, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { AgentThoughts } from "@/components/chat/agent-thoughts";
 import { ResearchTimeline } from "@/components/chat/research-timeline";
@@ -14,9 +14,11 @@ import { cn } from "@/lib/utils";
 export function MessageBubble({
   message,
   onFollowUp,
+  onRegenerate,
 }: {
   message: ChatMessage;
   onFollowUp?: (question: string) => void;
+  onRegenerate?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
@@ -69,6 +71,15 @@ export function MessageBubble({
                 {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                 {copied ? "Copied" : "Copy"}
               </button>
+              {onRegenerate && (
+                <button
+                  onClick={onRegenerate}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted cursor-pointer"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Regenerate
+                </button>
+              )}
             </div>
           )}
 

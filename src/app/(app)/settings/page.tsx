@@ -337,7 +337,7 @@ export default function SettingsPage() {
         </Dialog>
       </div>
 
-      <div className="mb-8">
+      <div id="billing" className="mb-8 scroll-mt-6">
         <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           <Receipt className="h-3.5 w-3.5" /> Billing
         </h2>

@@ -5,6 +5,8 @@ import { Menu, X } from "lucide-react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
 import { ChatsProvider } from "@/components/chat/chats-provider";
+import { CommandPalette } from "@/components/command-palette";
+import { ProductTour } from "@/components/product-tour";
 
 export function AppShell({
   user,
@@ -48,6 +50,8 @@ export function AppShell({
           <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         </div>
       </div>
+      <CommandPalette />
+      <ProductTour />
     </ChatsProvider>
   );
 }

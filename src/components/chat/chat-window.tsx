@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { AgentThoughts } from "@/components/chat/agent-thoughts";
 import { ResearchTimeline } from "@/components/chat/research-timeline";
+import { OnboardingPanel } from "@/components/onboarding-panel";
 import { useAgentStream } from "@/lib/hooks/use-agent-stream";
 import type { ChatMessage } from "@/lib/types/app";
 import Link from "next/link";
@@ -139,6 +140,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
 
           {isEmpty && (
             <div className="flex flex-col items-center pt-10 text-center">
+              <OnboardingPanel />
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
                 <Sparkles className="h-6 w-6" />
               </div>
@@ -163,7 +165,21 @@ export function ChatWindow({ chatId }: { chatId: string }) {
           )}
 
           {!loading &&
-            messages.map((m) => <MessageBubble key={m.id} message={m} onFollowUp={(q) => handleSend(q)} />)}
+            messages.map((m, i) => (
+              <MessageBubble
+                key={m.id}
+                message={m}
+                onFollowUp={(q) => handleSend(q)}
+                onRegenerate={
+                  m.role === "assistant" && !isStreaming
+                    ? () => {
+                        const precedingUser = [...messages.slice(0, i)].reverse().find((p) => p.role === "user");
+                        if (precedingUser?.content) handleSend(precedingUser.content);
+                      }
+                    : undefined
+                }
+              />
+            ))}
 
           {isStreaming && streaming && (
             <div className="mb-6 flex justify-start animate-fade-in-up">
@@ -192,12 +208,15 @@ export function ChatWindow({ chatId }: { chatId: string }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                handleSend();
+              } else if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
             }}
-            placeholder="Ask MicroManus to research something…"
+            placeholder="Ask MicroManus to research something… (⌘/Ctrl+Enter to send)"
             rows={2}
             className="max-h-40 flex-1"
           />

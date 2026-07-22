@@ -49,6 +49,12 @@ export default function AnalyticsPage() {
   const [range, setRange] = useState<UsageTotals["range"]>("30d");
 
   useEffect(() => {
+    // Real signal used by the chat page's onboarding checklist ("View analytics" step) —
+    // set once the user actually lands here, never fabricated.
+    localStorage.setItem("mm_visited_analytics", "1");
+  }, []);
+
+  useEffect(() => {
     setLoading(true);
     fetch(`/api/analytics?range=${range}`)
       .then((r) => r.json())
