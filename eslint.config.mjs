@@ -21,6 +21,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone manual debug script (not part of the Next.js app or its build).
+    "test.js",
   ]),
 ]);
 

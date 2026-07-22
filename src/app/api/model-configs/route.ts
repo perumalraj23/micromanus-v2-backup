@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret, maskKey } from "@/lib/crypto";
 
 export async function GET() {
@@ -10,9 +11,13 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  // Encrypted API keys are never selectable by the client role (enforced at the DB level),
+  // so this read goes through the service-role admin client, explicitly scoped to this user.
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("model_configs")
     .select("id, provider, label, base_url, model, is_default, api_key_encrypted, created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
   if (error) return Response.json({ error: "Could not load model configs." }, { status: 500 });
@@ -24,7 +29,7 @@ export async function GET() {
     base_url: c.base_url,
     model: c.model,
     is_default: c.is_default,
-    masked_key: maskKey(safeDecryptPreview(c.api_key_encrypted)),
+    masked_key: safeDecryptPreview(c.api_key_encrypted),
   }));
 
   return Response.json({ configs });
@@ -32,11 +37,7 @@ export async function GET() {
 
 // Best-effort preview only (never returns the real key to the client in full).
 function safeDecryptPreview(encrypted: string): string {
-  try {
-    return encrypted.length > 8 ? "sk-••••••••••••••••" : "••••••••";
-  } catch {
-    return "••••••••";
-  }
+  return encrypted.length > 8 ? "sk-••••••••••••••••" : "••••••••";
 }
 
 const createSchema = z.object({

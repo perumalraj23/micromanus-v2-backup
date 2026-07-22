@@ -2,12 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-console.log(
-    "SUPABASE URL:",
-    process.env.NEXT_PUBLIC_SUPABASE_URL
-);
-console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+/** Browser-side Supabase client (anon key only — safe to expose to the client bundle). */
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
