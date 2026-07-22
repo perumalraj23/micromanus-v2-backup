@@ -7,6 +7,7 @@ import { getActiveModelConfig } from "@/lib/agent/config";
 import { runAgentLoop, type AgentEvent } from "@/lib/agent/loop";
 import { estimateCost } from "@/lib/pricing";
 import { humanizeError, truncate } from "@/lib/utils";
+import { logger, newRequestId } from "@/lib/logger";
 import type { AgentThought, AgentTimelineEvent, ReportSummary } from "@/lib/types/app";
 
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ function sse(event: string, data: unknown) {
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = newRequestId();
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,8 +67,6 @@ export async function POST(req: NextRequest) {
     .select("credits, has_paid")
     .eq("id", user.id)
     .maybeSingle();
-    console.log("USER =", user);
-console.log("PROFILE =", profile);
 
   if (!profile || !profile.has_paid || profile.credits <= 0) {
     return Response.json(
@@ -102,10 +102,23 @@ console.log("PROFILE =", profile);
     .select("id, created_at")
     .single();
   if (insertUserErr || !userMessage) {
+    logger.error("chat.save_user_message_failed", { requestId, route: "/api/chat" });
     return Response.json({ error: "Could not save your message. Please try again." }, { status: 500 });
   }
 
-  await admin.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
+  // Atomic, race-safe decrement — fails (returns null) if another concurrent request already
+  // spent the last credit, instead of computing `credits - 1` from a possibly-stale read.
+  const { data: newCredits, error: decrementErr } = await admin.rpc("decrement_credit", {
+    p_user_id: user.id,
+    p_reason: "research_query",
+  });
+  if (decrementErr || newCredits === null) {
+    logger.warn("chat.no_credits", { requestId, route: "/api/chat" });
+    return Response.json(
+      { error: "You're out of credits. Add more to keep researching.", code: "NO_CREDITS" },
+      { status: 402 }
+    );
+  }
 
   if (chat.title === "New research") {
     await admin.from("chats").update({ title: truncate(content, 60) }).eq("id", chatId);
@@ -116,10 +129,25 @@ console.log("PROFILE =", profile);
     content: m.content ?? "",
   }));
 
+  let refunded = false;
+  const refundOnce = async (reason: string) => {
+    if (refunded) return;
+    refunded = true;
+    const { error } = await admin.rpc("refund_credit", { p_user_id: user.id, p_reason: reason });
+    if (error) logger.error("chat.refund_failed", { requestId, route: "/api/chat", reason });
+    else logger.info("chat.refunded", { requestId, route: "/api/chat", reason });
+  };
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
-      const send = (event: string, data: unknown) => controller.enqueue(encoder.encode(sse(event, data)));
+      const send = (event: string, data: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(sse(event, data)));
+        } catch {
+          // Client already disconnected; nothing to do, cancel() handles the refund.
+        }
+      };
 
       let fullText = "";
       const thoughts: AgentThought[] = [];
@@ -127,6 +155,8 @@ console.log("PROFILE =", profile);
       let report: ReportSummary | null = null;
       let usage = { input_tokens: 0, output_tokens: 0, cached_tokens: 0 };
       let errored = false;
+      let empty = false;
+      let incomplete = false;
 
       try {
         for await (const event of runAgentLoop({
@@ -154,6 +184,10 @@ console.log("PROFILE =", profile);
               break;
             case "done":
               usage = event.usage;
+              incomplete = Boolean(event.incomplete);
+              break;
+            case "empty":
+              empty = true;
               break;
             case "error":
               errored = true;
@@ -163,10 +197,23 @@ console.log("PROFILE =", profile);
         }
       } catch (err) {
         errored = true;
+        logger.error("chat.agent_loop_threw", { requestId, route: "/api/chat" });
         send("error", { message: humanizeError(err) });
       }
 
-      if (!errored) {
+      // A report on its own counts as a genuinely useful result even if the loop hit the
+      // step limit right after producing it, so we only treat it as incomplete when there's
+      // truly nothing to show the user.
+      const producedValue = Boolean(report) || (fullText.trim().length > 0 && !empty);
+
+      if (errored || empty || (incomplete && !producedValue)) {
+        await refundOnce(errored ? "agent_error" : empty ? "empty_response" : "max_iterations");
+        if (empty && !errored) {
+          send("error", {
+            message: "The model didn't return a usable answer that time. Your credit was refunded — please try again.",
+          });
+        }
+      } else {
         const { cost_usd, cache_savings_usd } = estimateCost(
           active.config.model,
           usage.input_tokens,
@@ -223,12 +270,20 @@ console.log("PROFILE =", profile);
           : { data: null };
 
         send("complete", { messageId: assistantMessage?.id, reportId: reportRow?.id ?? null, usage, cost_usd });
-      } else {
-        // Refund the credit if the loop failed before producing any usable output.
-        await admin.from("profiles").update({ credits: profile.credits }).eq("id", user.id);
       }
 
-      controller.close();
+      try {
+        controller.close();
+      } catch {
+        // Already closed by a cancel() race; safe to ignore.
+      }
+    },
+    // Fires when the client aborts the fetch (navigates away, calls stop()). Without this,
+    // an aborted request would silently keep the spent credit even though no answer was ever
+    // delivered.
+    async cancel() {
+      logger.info("chat.client_aborted", { requestId, route: "/api/chat" });
+      await refundOnce("client_abort");
     },
   });
 

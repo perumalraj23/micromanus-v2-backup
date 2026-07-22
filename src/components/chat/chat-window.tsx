@@ -110,8 +110,18 @@ export function ChatWindow({ chatId }: { chatId: string }) {
                 ? { label: "Open Settings", onClick: () => router.push("/settings") }
                 : undefined,
         });
+        // Errors (including empty responses) trigger a server-side refund — refresh so the
+        // sidebar credit counter reflects the refund immediately instead of looking stale.
+        router.refresh();
       }
     );
+  }
+
+  function handleStop() {
+    stop();
+    // The abort triggers an async server-side refund (ReadableStream.cancel()) — refresh
+    // shortly after so the sidebar picks up the refunded credit once it lands.
+    setTimeout(() => router.refresh(), 500);
   }
 
   const isEmpty = !loading && messages.length === 0 && !isStreaming;
@@ -192,7 +202,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
             className="max-h-40 flex-1"
           />
           {isStreaming ? (
-            <Button variant="destructive" size="icon" onClick={stop} aria-label="Stop generating">
+            <Button variant="destructive" size="icon" onClick={handleStop} aria-label="Stop generating">
               <Square className="h-4 w-4" />
             </Button>
           ) : (

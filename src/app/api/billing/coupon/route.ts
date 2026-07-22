@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { COUPON_CODE, CREDIT_PACK } from "@/lib/stripe";
+import { logger } from "@/lib/logger";
 
 const schema = z.object({ code: z.string().trim() });
 
@@ -21,30 +23,24 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "That coupon code isn't valid. Double-check and try again." }, { status: 400 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("credits, coupon_used")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Credits/has_paid/coupon_used are protected columns — redeem atomically via the service
+  // role so two simultaneous requests can't both redeem the coupon (race-safe: the SQL
+  // function only succeeds `WHERE coupon_used IS NULL`).
+  const admin = createAdminClient();
+  const { data: newCredits, error } = await admin.rpc("redeem_coupon", {
+    p_user_id: user.id,
+    p_code: COUPON_CODE,
+    p_credits: CREDIT_PACK.credits,
+  });
 
-  if (profile?.coupon_used) {
-    return Response.json({ error: "You've already redeemed a coupon on this account." }, { status: 400 });
-  }
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({
-      credits: (profile?.credits ?? 0) + CREDIT_PACK.credits,
-      has_paid: true,
-      coupon_used: COUPON_CODE,
-    })
-    .eq("id", user.id)
-    .select("credits")
-    .single();
-
-  if (error || !data) {
+  if (error) {
+    logger.error("billing.coupon_redeem_failed", { route: "/api/billing/coupon" });
     return Response.json({ error: "Could not apply the coupon. Please try again." }, { status: 500 });
   }
 
-  return Response.json({ credits: data.credits });
+  if (newCredits === null) {
+    return Response.json({ error: "You've already redeemed a coupon on this account." }, { status: 400 });
+  }
+
+  return Response.json({ credits: newCredits });
 }
