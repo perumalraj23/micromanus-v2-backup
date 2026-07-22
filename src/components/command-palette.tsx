@@ -14,6 +14,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useChats } from "@/components/chat/chats-provider";
+import { useFounderMode } from "@/lib/hooks/use-founder-mode";
 import { cn, truncate } from "@/lib/utils";
 
 type Action = {
@@ -35,6 +36,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { chats, createChat } = useChats();
+  const { enabled: founderMode, toggle: toggleFounderMode } = useFounderMode();
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -155,7 +157,13 @@ export function CommandPalette() {
             <kbd className="rounded border border-border px-1 py-0.5">↵</kbd> select ·{" "}
             <kbd className="rounded border border-border px-1 py-0.5">esc</kbd> close
           </span>
-          <span className="opacity-40">Built for Siddarth Jain</span>
+          <button
+            onClick={toggleFounderMode}
+            className="opacity-40 hover:opacity-80 cursor-pointer"
+            title="Toggle Founder Mode"
+          >
+            Built for Siddarth Jain{founderMode ? " · Founder Mode: On" : ""}
+          </button>
         </div>
       </div>
     </div>

@@ -288,6 +288,35 @@ export default function AnalyticsPage() {
             </Card>
           </div>
 
+          {/* Year in Review — only meaningful once "Lifetime" is selected, all real totals */}
+          {range === "lifetime" && (
+            <Card className="mt-6 border-primary/30 bg-primary/5 p-5">
+              <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
+                <Trophy className="h-4 w-4 text-primary" /> Your MicroManus Highlights
+              </p>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                  <p className="text-2xl font-bold tabular-nums">{formatNumber(totals.total_chats)}</p>
+                  <p className="text-xs text-muted-foreground">Chats</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold tabular-nums">{formatNumber(totals.reports_generated)}</p>
+                  <p className="text-xs text-muted-foreground">Reports</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold tabular-nums">
+                    {formatNumber(totals.input_tokens + totals.output_tokens)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Tokens</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold tabular-nums">{formatCurrency(totals.total_cost_usd)}</p>
+                  <p className="text-xs text-muted-foreground">Spent</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Section 5 — Cost optimization tip */}
           {totals.cost_tip && (
             <Card className="mt-6 flex items-start gap-3 border-primary/30 bg-primary/5 p-4">

@@ -12,6 +12,7 @@ import { AgentThoughts } from "@/components/chat/agent-thoughts";
 import { ResearchTimeline } from "@/components/chat/research-timeline";
 import { OnboardingPanel } from "@/components/onboarding-panel";
 import { useAgentStream } from "@/lib/hooks/use-agent-stream";
+import type { StreamingAssistant } from "@/lib/hooks/use-agent-stream";
 import type { ChatMessage } from "@/lib/types/app";
 import Link from "next/link";
 
@@ -33,6 +34,21 @@ const SUGGESTED_PROMPTS = [
     label: "Compare the top 3 vector databases for a RAG pipeline.",
   },
 ];
+
+// Wow Factor #2: Live Agent Avatar — a short, real-time status derived directly from the most
+// recent timeline event/thought, never a fabricated or randomized label.
+function liveAgentStatus(streaming: StreamingAssistant): string {
+  if (streaming.content) return "writing the answer...";
+  const lastEvent = streaming.timeline[streaming.timeline.length - 1];
+  if (lastEvent) {
+    if (lastEvent.label.startsWith("Search")) return "searching the web...";
+    if (lastEvent.label.startsWith("Read")) return "reading sources...";
+    if (lastEvent.label.startsWith("Generated")) return "generating the report...";
+  }
+  const lastThought = streaming.thoughts[streaming.thoughts.length - 1];
+  if (lastThought?.type === "tool_call") return "comparing sources...";
+  return "thinking...";
+}
 
 export function ChatWindow({ chatId }: { chatId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -184,10 +200,14 @@ export function ChatWindow({ chatId }: { chatId: string }) {
           {isStreaming && streaming && (
             <div className="mb-6 flex justify-start animate-fade-in-up">
               <div className="flex w-full max-w-[95%] items-start gap-2 sm:max-w-[85%]">
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <div className="relative mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Sparkles className="h-3.5 w-3.5" />
+                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-emerald-500 ring-2 ring-background" />
                 </div>
                 <div className="min-w-0 flex-1">
+                  <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                    MicroManus is <span className="text-foreground">{liveAgentStatus(streaming)}</span>
+                  </p>
                   <ResearchTimeline events={streaming.timeline} />
                   <AgentThoughts thoughts={streaming.thoughts} live />
                   {streaming.content && (

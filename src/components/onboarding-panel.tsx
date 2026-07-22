@@ -40,6 +40,7 @@ export function OnboardingPanel() {
   const [userName, setUserName] = useState("Researcher");
   const [hasModel, setHasModel] = useState<boolean | null>(null);
   const [reportsCount, setReportsCount] = useState<number | null>(null);
+  const [reportsThisWeek, setReportsThisWeek] = useState<number | null>(null);
   const [dismissed, setDismissed] = useState(true);
   const [visitedAnalytics, setVisitedAnalytics] = useState(true);
 
@@ -61,6 +62,10 @@ export function OnboardingPanel() {
       .then((r) => r.json())
       .then((data) => setReportsCount((data.reports ?? []).length))
       .catch(() => setReportsCount(0));
+    fetch("/api/analytics?range=7d")
+      .then((r) => r.json())
+      .then((data) => setReportsThisWeek(data.totals?.weekly?.reports ?? 0))
+      .catch(() => setReportsThisWeek(null));
   }, []);
 
   // A chat only counts as "researched" once it's been updated well after creation — the
@@ -92,6 +97,11 @@ export function OnboardingPanel() {
       <h2 className="text-lg font-semibold">
         {greeting()}, {userName.split(" ")[0]}.
       </h2>
+      {reportsThisWeek !== null && reportsThisWeek > 0 && (
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Welcome back. You generated {reportsThisWeek} report{reportsThisWeek === 1 ? "" : "s"} this week.
+        </p>
+      )}
 
       {showChecklist && (
         <Card className="relative mt-3 p-4">
