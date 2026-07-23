@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MicroManus — Deep Research AI Agent",
+  title: "MicroManus",
   description:
-    "MicroManus is a miniature Manus/Perplexity: a deep research AI agent with live web search, multi-step reasoning, PDF reports, and usage analytics.",
+    "AI Research Assistant for Founders and Engineers. Generate cited reports, startup intelligence, competitor analysis, market research, and technology deep-dives in minutes.",
 };
 
 export const viewport: Viewport = {

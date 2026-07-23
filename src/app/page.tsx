@@ -55,14 +55,14 @@ export default function Home() {
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-6 pb-24 pt-10 text-center md:pt-20">
         <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
-          <Zap className="h-3.5 w-3.5 text-primary" /> A miniature Manus + Perplexity, in one agent
+          <Zap className="h-3.5 w-3.5 text-primary" /> MicroManus
         </span>
         <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-6xl">
-          Deep research, done by an agent that shows its work.
+          AI Research Assistant for Founders and Engineers.
         </h1>
-        <p className="mt-5 max-w-xl text-balance text-muted-foreground md:text-lg">
-          Ask MicroManus anything. It searches the web, reasons step by step, and ships you a
-          sourced executive report — as a PDF, in minutes.
+        <p className="mt-5 max-w-2xl text-balance text-muted-foreground md:text-lg">
+          Generate cited reports, startup intelligence, competitor analysis, market research,
+          and technology deep-dives in minutes.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Button size="lg" asChild>
