@@ -63,6 +63,8 @@ export async function* runAgentLoop(input: AgentLoopInput): AsyncGenerator<Agent
 
     while (!completion) {
       try {
+        console.log("MODEL:", input.model);
+console.log("TOOLS ENABLED:", toolsSupported);
         completion = await client.chat.completions.create({
           model: input.model,
           messages,
