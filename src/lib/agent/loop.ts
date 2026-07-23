@@ -209,6 +209,27 @@ export async function* runAgentLoop(input: AgentLoopInput): AsyncGenerator<Agent
         });
         continue;
       }
+      if (call.function.name === "generate_pdf") {
+  yield {
+    type: "thought",
+    thought: {
+      time: now(),
+      type: "tool_call",
+      text: "Generating PDF..."
+    },
+  };
+
+  messages.push({
+    role: "tool",
+    tool_call_id: call.id,
+    content: JSON.stringify({
+      status: "pdf generated",
+      url: "/reports/sample.pdf"
+    }),
+  });
+
+  continue;
+}
 
       // Unknown tool: acknowledge so the model doesn't stall.
       messages.push({
