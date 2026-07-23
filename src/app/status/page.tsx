@@ -29,7 +29,7 @@ type DeploymentCheck = {
 const LABELS: Record<string, string> = {
   database: "Database",
   stripe: "Stripe",
-  brave: "Brave Search",
+  tavily: "Tavily Search",
   encryption: "Encryption",
   pdf: "PDF Service",
   oauth_redirect: "OAuth Redirect Config",

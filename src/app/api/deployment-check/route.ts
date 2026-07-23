@@ -1,7 +1,7 @@
 import {
   checkDatabase,
   checkStripeConfigured,
-  checkBraveConfigured,
+  checkTavilyConfigured,
   checkEncryption,
   checkPdfGeneration,
   checkOAuthRedirectConfig,
@@ -21,11 +21,11 @@ import { metricsSnapshot } from "@/lib/metrics";
 export async function GET() {
   const [database, pdf] = await Promise.all([checkDatabase(), checkPdfGeneration()]);
   const stripe = checkStripeConfigured();
-  const brave = checkBraveConfigured();
+  const tavily = checkTavilyConfigured();
   const encryption = checkEncryption();
   const oauthRedirect = checkOAuthRedirectConfig();
 
-  const checks: CheckResult[] = [database, stripe, brave, encryption, pdf, oauthRedirect];
+  const checks: CheckResult[] = [database, stripe, tavily, encryption, pdf, oauthRedirect];
   const score = computeDeploymentScore(checks);
   const warnings = getDeploymentWarnings();
 

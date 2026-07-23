@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   checkStripeConfigured,
-  checkBraveConfigured,
+  checkTavilyConfigured,
   checkOAuthRedirectConfig,
   checkEncryption,
   computeDeploymentScore,
@@ -12,7 +12,7 @@ import {
 const ENV_KEYS = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "BRAVE_SEARCH_API_KEY",
+  "TAVILY_API_KEY",
   "NEXT_PUBLIC_SITE_URL",
   "ENCRYPTION_KEY",
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -55,13 +55,13 @@ describe("health checks — missing/placeholder env var scenarios", () => {
     expect(checkStripeConfigured().status).toBe("unavailable");
   });
 
-  it("reports brave search unavailable when BRAVE_SEARCH_API_KEY is missing", () => {
-    expect(checkBraveConfigured().status).toBe("unavailable");
+  it("reports Tavily unavailable when TAVILY_API_KEY is missing", () => {
+    expect(checkTavilyConfigured().status).toBe("unavailable");
   });
 
-  it("reports brave search healthy when a real key is present", () => {
-    process.env.BRAVE_SEARCH_API_KEY = "real-brave-key";
-    expect(checkBraveConfigured().status).toBe("healthy");
+  it("reports Tavily healthy when a real key is present", () => {
+    process.env.TAVILY_API_KEY = "real-tavily-key";
+    expect(checkTavilyConfigured().status).toBe("healthy");
   });
 
   it("flags missing NEXT_PUBLIC_SITE_URL as degraded (OAuth redirects would break in prod)", () => {

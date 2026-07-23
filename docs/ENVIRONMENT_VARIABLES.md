@@ -21,7 +21,7 @@ Copy `.env.example` to `.env.local` and fill in every value before running local
 |---|---|---|---|
 | `STRIPE_SECRET_KEY` | Stripe secret key (test mode: `sk_test_...`). Without it, `getStripe()` throws when checkout is attempted — the coupon-only paywall path still works. | Stripe Dashboard → Developers → API keys (Test mode) | [src/lib/stripe.ts](../src/lib/stripe.ts) |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret for the `/api/billing/webhook` endpoint. Without it, the webhook route returns 400 for all events, but `/api/billing/confirm` (checked when the user is redirected back from Checkout) still grants credits — reported as "degraded" rather than "unavailable" by health checks. | Stripe Dashboard → Developers → Webhooks → your endpoint | [src/app/api/billing/webhook/route.ts](../src/app/api/billing/webhook/route.ts) |
-| `BRAVE_SEARCH_API_KEY` | Brave Search API key. Without it, the agent's `web_search` tool throws immediately with a descriptive error — the agent loop still runs but can't search the web. | [Brave Search API dashboard](https://api.search.brave.com/app/keys) (free tier: 2,000 queries/month) | [src/lib/agent/brave-search.ts](../src/lib/agent/brave-search.ts) |
+| `TAVILY_API_KEY` | Tavily Search API key. Without it, the agent's `web_search` tool throws immediately with a descriptive error — the agent loop still runs but can't search the web. | [Tavily dashboard](https://app.tavily.com/home) | [src/lib/agent/brave-search.ts](../src/lib/agent/brave-search.ts) |
 | `NEXT_PUBLIC_SITE_URL` | Public site URL, e.g. `http://localhost:3000` locally or `https://your-app.vercel.app` in production. Used for Stripe Checkout redirect URLs. If missing in production, OAuth-adjacent redirect construction silently falls back to `localhost`, which will break login for real users — flagged as `degraded` by `checkOAuthRedirectConfig()`. | Your own deployment URL | [src/app/api/billing/checkout/route.ts](../src/app/api/billing/checkout/route.ts), [src/lib/health.ts](../src/lib/health.ts) |
 
 ## Note on the prompt's requested variable names
@@ -29,7 +29,7 @@ Copy `.env.example` to `.env.local` and fill in every value before running local
 The task list for this prompt referenced generic names (`SUPABASE_URL`, `OPENAI_API_KEY`,
 `BRAVE_API_KEY`). This codebase's actual variable names (verified directly against
 [src/lib/env.ts](../src/lib/env.ts) and [.env.example](../.env.example)) are
-`NEXT_PUBLIC_SUPABASE_URL`, `BRAVE_SEARCH_API_KEY`, and there is **no `OPENAI_API_KEY` env
+`NEXT_PUBLIC_SUPABASE_URL`, `TAVILY_API_KEY`, and there is **no `OPENAI_API_KEY` env
 var at all** — model API keys are user-supplied at runtime through the Settings UI, encrypted
 with `ENCRYPTION_KEY`, and stored per-user in `model_configs.api_key_encrypted` rather than as
 a single server-wide environment variable. This table documents the real variable names to

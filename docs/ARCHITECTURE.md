@@ -20,7 +20,7 @@ flowchart TB
 
     Supabase[("Supabase\nPostgres + Auth + RLS")]
     Stripe[("Stripe\nsandbox Checkout + Webhooks")]
-    Brave[("Brave Search API")]
+    Tavily[("Tavily Search API")]
     LLM[("Any OpenAI-compatible\nmodel provider")]
 
     UI -- "REST + SSE" --> Proxy --> API

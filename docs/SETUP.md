@@ -7,7 +7,7 @@ Goal: a new engineer running MicroManus locally in under 10 minutes.
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier is fine)
 - A [Stripe](https://dashboard.stripe.com/register) account in **test mode**
-- A [Brave Search API](https://api.search.brave.com/app/keys) key (free tier: 2,000 queries/month)
+- A [Tavily Search](https://app.tavily.com/home) API key
 - At least one model API key: [OpenAI](https://platform.openai.com/api-keys),
   [Anthropic](https://console.anthropic.com/settings/keys), [Moonshot/Kimi](https://platform.moonshot.ai/),
   or any other OpenAI-compatible provider (see `src/lib/pricing.ts` for the built-in presets).
@@ -65,10 +65,10 @@ URL, later) to the Redirect URLs allow-list.
    webhook is the durable, production-grade path.
 4. Test card: `4242 4242 4242 4242`, any future expiry, any CVC.
 
-## 6. Brave Search
+## 6. Tavily Search
 
-Grab an API key from the [Brave Search API dashboard](https://api.search.brave.com/app/keys)
-and set `BRAVE_SEARCH_API_KEY`. This powers the agent's `web_search` tool.
+Grab an API key from the [Tavily dashboard](https://app.tavily.com/home)
+and set `TAVILY_API_KEY`. This powers the agent's `web_search` tool.
 
 ## 7. Environment variables
 

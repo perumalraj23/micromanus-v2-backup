@@ -1,4 +1,4 @@
-import { getVersion, checkDatabase, checkStripeConfigured, checkBraveConfigured } from "@/lib/health";
+import { getVersion, checkDatabase, checkStripeConfigured, checkTavilyConfigured } from "@/lib/health";
 import { metricsSnapshot } from "@/lib/metrics";
 
 /**
@@ -7,10 +7,10 @@ import { metricsSnapshot } from "@/lib/metrics";
  * live database ping. Safe to expose without auth (see 06_REPORT.md).
  */
 export async function GET() {
-  const [database, stripe, brave] = await Promise.all([
+  const [database, stripe, tavily] = await Promise.all([
     checkDatabase(),
     Promise.resolve(checkStripeConfigured()),
-    Promise.resolve(checkBraveConfigured()),
+    Promise.resolve(checkTavilyConfigured()),
   ]);
 
   const overallHealthy = database.status === "healthy";
@@ -22,7 +22,7 @@ export async function GET() {
       version: getVersion(),
       database: database.status,
       stripe: stripe.status,
-      brave: brave.status,
+      tavily: tavily.status,
       // Instance-local uptime only (resets on cold start) — see src/lib/metrics.ts caveat.
       uptimeSeconds: metrics.instanceUptimeSeconds,
     },

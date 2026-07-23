@@ -33,7 +33,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "web_search",
       description:
-        "Search the public web via Brave Search for up-to-date information.",
+        "Search the public web via Tavily Search for up-to-date information.",
       parameters: {
         type: "object",
         properties: {

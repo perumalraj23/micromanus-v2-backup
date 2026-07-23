@@ -34,13 +34,13 @@ export function checkStripeConfigured(): CheckResult {
   return { name: "stripe", status: "healthy" };
 }
 
-export function checkBraveConfigured(): CheckResult {
+export function checkTavilyConfigured(): CheckResult {
   const { optional } = getEnvStatus();
-  const key = optional.find((o) => o.key === "BRAVE_SEARCH_API_KEY");
+  const key = optional.find((o) => o.key === "TAVILY_API_KEY");
   if (!key?.present || key.looksPlaceholder) {
-    return { name: "brave", status: "unavailable", detail: "BRAVE_SEARCH_API_KEY missing or placeholder — web search disabled" };
+    return { name: "tavily", status: "unavailable", detail: "TAVILY_API_KEY missing or placeholder — web search disabled" };
   }
-  return { name: "brave", status: "healthy" };
+  return { name: "tavily", status: "healthy" };
 }
 
 /** Round-trips a throwaway value through encrypt/decrypt to prove ENCRYPTION_KEY actually works. */
@@ -106,8 +106,8 @@ export function getDeploymentWarnings(): string[] {
   if (checkStripeConfigured().status !== "healthy") {
     warnings.push("Stripe webhook secret missing — credits rely on the /api/billing/confirm fallback instead of webhooks.");
   }
-  if (checkBraveConfigured().status !== "healthy") {
-    warnings.push("Brave Search API key missing or placeholder — web search tool is disabled.");
+  if (checkTavilyConfigured().status !== "healthy") {
+    warnings.push("Tavily API key missing or placeholder — web search tool is disabled.");
   }
   // maxDuration = 120s on /api/chat exceeds the Vercel Hobby plan's 60s serverless function
   // limit (Pro/Enterprise support longer durations). This is a real, verifiable fact about

@@ -16,7 +16,7 @@ const FEATURES = [
   {
     icon: Search,
     title: "Live web research",
-    desc: "Brave Search-powered agent that reads real articles before answering.",
+    desc: "Tavily-powered agent that reads real articles before answering.",
   },
   {
     icon: Brain,

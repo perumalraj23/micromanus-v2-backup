@@ -13,7 +13,7 @@ export type EnvKey =
   | "ENCRYPTION_KEY"
   | "STRIPE_SECRET_KEY"
   | "STRIPE_WEBHOOK_SECRET"
-  | "BRAVE_SEARCH_API_KEY"
+  | "TAVILY_API_KEY"
   | "NEXT_PUBLIC_SITE_URL";
 
 const REQUIRED: EnvKey[] = [
@@ -26,7 +26,7 @@ const REQUIRED: EnvKey[] = [
 const OPTIONAL: EnvKey[] = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "BRAVE_SEARCH_API_KEY",
+  "TAVILY_API_KEY",
   "NEXT_PUBLIC_SITE_URL",
 ];
 
