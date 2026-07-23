@@ -15,17 +15,19 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
 
-    const { data, error } =
-      await supabase.auth.exchangeCodeForSession(code);
 
-    console.log("Data:", data);
+
+   
+const { data, error } =
+  await supabase.auth.exchangeCodeForSession(code);
+
+console.log("ORIGIN:", origin);
+console.log("NEXT:", next);
+console.log("SESSION:", !!data.session);
+console.log("USER:", data.user?.email);
+console.log("ERROR:", error);
+ console.log("Data:", data);
     console.log("Error:", error);
-
-    if (!error) {
-      console.log("SUCCESS!");
-      return NextResponse.redirect(`${origin}${next}`);
-    }
-
     console.log("FAILED!");
   }
 
