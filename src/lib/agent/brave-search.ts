@@ -35,17 +35,26 @@ export async function braveSearch(query: string, count = 5): Promise<BraveSearch
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          api_key: apiKey,
-          query,
-          search_depth: "advanced",
-          max_results: maxResults,
-          include_answer: false,
-          include_raw_content: false,
-        }),
+body: JSON.stringify({
+    api_key: apiKey,
+    query,
+    search_depth: "basic",
+    max_results: maxResults,
+    include_answer: false,
+    include_raw_content: false,
+}),
         signal: AbortSignal.timeout(10_000),
       });
 
+      console.log(
+    "TAVILY KEY EXISTS:",
+    !!apiKey
+);
+
+console.log(
+    "QUERY:",
+    query
+);
       if (!res.ok) {
         const transient = res.status === 429 || res.status >= 500;
         if (transient && attempt < maxAttempts) {
@@ -55,7 +64,12 @@ export async function braveSearch(query: string, count = 5): Promise<BraveSearch
         throw new Error(`Tavily Search request failed (${res.status})`);
       }
 
-      const data = await res.json();
+      const text = await res.text();
+
+console.log("STATUS:", res.status);
+console.log("BODY:", text);
+
+const data = JSON.parse(text);
       const results: BraveSearchResult[] = (data?.results ?? []).map(
         (r: { title?: string; url?: string; content?: string }) => ({
           title: r.title ?? r.url ?? "Untitled result",
