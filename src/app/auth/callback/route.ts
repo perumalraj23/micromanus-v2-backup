@@ -1,38 +1,29 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  console.log("VERSION: 123");
   const { searchParams, origin } = new URL(request.url);
 
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/chat";
 
-  console.log("========== AUTH CALLBACK ==========");
-  console.log("Origin:", origin);
-  console.log("Code exists:", !!code);
-  console.log("Next:", next);
+  console.log("CODE:", code);
 
-  if (code) {
-    const supabase = await createClient();
+  const supabase = await createClient();
 
+  const { data, error } =
+    await supabase.auth.exchangeCodeForSession(code!);
 
+  console.log("DATA:", data);
+  console.log("ERROR:", error);
 
-   
-const { data, error } =
-  await supabase.auth.exchangeCodeForSession(code);
-
-console.log("ORIGIN:", origin);
-console.log("NEXT:", next);
-console.log("SESSION:", !!data.session);
-console.log("USER:", data.user?.email);
-console.log("ERROR:", error);
- console.log("Data:", data);
-    console.log("Error:", error);
-    console.log("FAILED!");
+  if (!error) {
+    return NextResponse.redirect(`${origin}/chat`);
   }
 
-  return NextResponse.redirect(
-    `${origin}/auth/auth-code-error`
-  );
+  return NextResponse.json({
+    message: "FAILED",
+    error,
+  });
 }
