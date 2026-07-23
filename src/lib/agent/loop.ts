@@ -221,25 +221,26 @@ console.log(
         });
         continue;
       }
-  {
-    type: "function",
-    function: {
-        name: "generate_pdf",
-        description:
-            "Generate a PDF report for a topic requested by the user.",
-        parameters: {
-            type: "object",
-            properties: {
-                topic: {
-                    type: "string",
-                    description: "Topic for the PDF report."
-                }
-            },
-            required: ["topic"]
-        }
-    }
-}
+if (call.function.name === "generate_pdf") {
+    yield {
+        type: "thought",
+        thought: {
+            time: now(),
+            type: "tool_call",
+            text: "Generating PDF..."
+        },
+    };
 
+    messages.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify({
+            status: "pdf generated"
+        }),
+    });
+
+    continue;
+}
       // Unknown tool: acknowledge so the model doesn't stall.
       messages.push({
         role: "tool",
