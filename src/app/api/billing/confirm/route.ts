@@ -45,15 +45,29 @@ export async function GET(req: Request) {
       })
       .single();
 
-    if (error || !data) {
-      logger.error("billing.confirm_grant_failed", { route: "/api/billing/confirm" });
-      recordFailure("stripe");
-      return Response.json({ error: "Could not confirm your payment. Please contact support." }, { status: 500 });
-    }
+if (error || !data) {
+  console.log("RPC ERROR:", error);
+  console.log("RPC DATA:", data);
+
+  return Response.json(
+    {
+      error,
+      data,
+    },
+    { status: 500 }
+  );
+}
 
     const result = data as { credits: number; already_processed: boolean };
     return Response.json({ credits: result.credits, already_processed: result.already_processed });
-  } catch {
-    return Response.json({ error: "Could not confirm your payment. Please contact support." }, { status: 500 });
-  }
+  } catch (e) {
+  console.error(e);
+
+  return Response.json(
+    {
+      error: String(e),
+    },
+    { status: 500 }
+  );
+}
 }
