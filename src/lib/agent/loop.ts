@@ -115,6 +115,16 @@ console.log("TOOLS ENABLED:", toolsSupported);
 
     const toolCalls = message.tool_calls ?? [];
 
+    console.log(
+  "TOOL CALLS:",
+  JSON.stringify(toolCalls, null, 2)
+);
+
+console.log(
+  "MESSAGE CONTENT:",
+  message.content
+);
+
     if (toolCalls.length === 0) {
       const content = (message.content ?? "").trim();
       if (!content) {
