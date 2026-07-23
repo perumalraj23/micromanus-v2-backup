@@ -2,10 +2,17 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-/** Browser-side Supabase client (anon key only — safe to expose to the client bundle). */
+let client: ReturnType<typeof createBrowserClient> | undefined;
+
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  if (!client) {
+    console.log("CREATING SUPABASE CLIENT");
+
+    client = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+
+  return client;
 }
