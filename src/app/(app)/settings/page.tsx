@@ -66,6 +66,28 @@ type TestResult = {
 
 const PROVIDERS: ModelProvider[] = ["openai", "anthropic", "kimi", "google", "xai", "openrouter", "groq", "custom"];
 
+function SettingsSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-6 sm:p-10" aria-live="polite" aria-busy="true">
+      <div className="animate-pulse space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-32 rounded bg-muted" />
+            <div className="h-4 w-96 max-w-full rounded bg-muted" />
+          </div>
+          <div className="h-10 w-28 rounded bg-muted" />
+        </div>
+        <div className="h-24 rounded bg-muted" />
+        <div className="space-y-3">
+          <div className="h-6 w-48 rounded bg-muted" />
+          <div className="h-20 rounded bg-muted" />
+          <div className="h-20 rounded bg-muted" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -228,6 +250,10 @@ export default function SettingsPage() {
           cheapest: [...configs].filter((c) => (c.requests ?? 0) > 0).sort((a, b) => (a.cost_usd ?? 0) - (b.cost_usd ?? 0))[0],
         }
       : null;
+
+  if (loading && billingLoading && !billing && configs.length === 0) {
+    return <SettingsSkeleton />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-6 sm:p-10">

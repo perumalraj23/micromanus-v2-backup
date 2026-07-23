@@ -43,6 +43,28 @@ const RANGES: { id: UsageTotals["range"]; label: string }[] = [
   { id: "lifetime", label: "Lifetime" },
 ];
 
+function AnalyticsSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto p-6 sm:p-10" aria-live="polite" aria-busy="true">
+      <div className="animate-pulse space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-32 rounded bg-muted" />
+            <div className="h-4 w-72 rounded bg-muted" />
+          </div>
+          <div className="h-9 w-56 rounded bg-muted" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-24 rounded bg-muted" />)}
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-64 rounded bg-muted" />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const [totals, setTotals] = useState<UsageTotals | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +87,10 @@ export default function AnalyticsPage() {
 
   const mostUsedModel = totals?.model_insights[0]?.model ?? "—";
   const avgCostPerChat = totals && totals.total_chats > 0 ? totals.total_cost_usd / totals.total_chats : 0;
+
+  if (loading && !totals) {
+    return <AnalyticsSkeleton />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto p-6 sm:p-10">

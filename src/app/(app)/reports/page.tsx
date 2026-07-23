@@ -17,6 +17,23 @@ type ReportRow = {
   created_at: string;
 };
 
+function ReportsSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-6 sm:p-10" aria-live="polite" aria-busy="true">
+      <div className="animate-pulse space-y-6">
+        <div className="space-y-2">
+          <div className="h-8 w-32 rounded bg-muted" />
+          <div className="h-4 w-80 max-w-full rounded bg-muted" />
+        </div>
+        <div className="space-y-3">
+          <div className="h-40 rounded bg-muted" />
+          <div className="h-40 rounded bg-muted" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +45,10 @@ export default function ReportsPage() {
       .catch(() => toast.error("Could not load your reports."))
       .finally(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return <ReportsSkeleton />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-6 sm:p-10">
